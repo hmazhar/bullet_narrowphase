@@ -18,9 +18,9 @@
 #ifndef REAL4_H
 #define REAL4_H
 
-#include "chrono_parallel/ChParallelDefines.h"
-#include "chrono_parallel/math/real2.h"
-#include "chrono_parallel/math/real3.h"
+#include "../defines.h"
+#include "../math/real2.h"
+#include "../math/real3.h"
 
 #define R4  real4
 #ifdef ENABLE_SSE

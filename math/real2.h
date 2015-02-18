@@ -18,8 +18,8 @@
 #ifndef REAL2_H
 #define REAL2_H
 
-#include "chrono_parallel/ChParallelDefines.h"
-#include "chrono_parallel/math/real.h"
+#include "../defines.h"
+#include "../math/real.h"
 #include <iostream>
 #define R2  make_real2
 

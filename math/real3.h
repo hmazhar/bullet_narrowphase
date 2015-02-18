@@ -20,9 +20,9 @@
 
 #include <algorithm>
 
-#include "chrono_parallel/ChParallelDefines.h"
-#include "chrono_parallel/math/real.h"
-#include "chrono_parallel/math/real2.h"
+#include "../defines.h"
+#include "../math/real.h"
+#include "../math/real2.h"
 
 #define R3  real3
 #define ZERO_VECTOR R3(0)
