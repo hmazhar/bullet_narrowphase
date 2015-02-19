@@ -3,6 +3,7 @@
 
 #include "../narrowphase/data_structures.h"
 
+
 inline real3 GetSupportPoint_Sphere(const real3& B, const real3& n) {
   // real3 b = real3(B.x);
   // return b * b * n / length(b * n);
@@ -156,9 +157,9 @@ inline real3 GetCenter_Cylinder() { return ZERO_VECTOR; }
 inline real3 GetCenter_Plane() { return ZERO_VECTOR; }
 inline real3 GetCenter_Cone(const real3& B) { return ZERO_VECTOR; }
 
-inline real3 SupportVert(const ConvexShape& Shape, const real3& n, const real& envelope) {
+inline real3 SupportVertNoMargin(const ConvexShape& Shape, const real3& nv, const real& envelope) {
   real3 localSupport;
-
+  real3 n = nv.normalize();
   switch (Shape.type) {
     case SPHERE:
       localSupport = GetSupportPoint_Sphere(Shape.B, n);
@@ -188,16 +189,55 @@ inline real3 SupportVert(const ConvexShape& Shape, const real3& n, const real& e
       localSupport = GetSupportPoint_RoundedCone(Shape.B, Shape.C, n);
       break;
   }
-  // The collision margin is applied as a compound support.
+  // The collision envelope is applied as a compound support.
   // A sphere with a radius equal to the collision envelope is swept around the
   // entire shape.
   localSupport += GetSupportPoint_Sphere(envelope, n);
   return localSupport;
 }
 
+inline real3 SupportVert(const ConvexShape& Shape, const real3& nv, const real& envelope) {
+  real3 localSupport;
+  real3 n = nv.normalize();
+  switch (Shape.type) {
+    case SPHERE:
+      localSupport = GetSupportPoint_Sphere(Shape.B-Shape.margin, n);
+      break;
+    case ELLIPSOID:
+      localSupport = GetSupportPoint_Ellipsoid(Shape.B-Shape.margin, n);
+      break;
+    case BOX:
+      localSupport = GetSupportPoint_Box(Shape.B-Shape.margin, n);
+      break;
+    case CYLINDER:
+      localSupport = GetSupportPoint_Cylinder(Shape.B-Shape.margin, n);
+      break;
+    case CONE:
+      localSupport = GetSupportPoint_Cone(Shape.B-Shape.margin, n);
+      break;
+    case CAPSULE:
+      localSupport = GetSupportPoint_Capsule(Shape.B-Shape.margin, n);
+      break;
+    case ROUNDEDBOX:
+      localSupport = GetSupportPoint_RoundedBox(Shape.B-Shape.margin, Shape.C, n);
+      break;
+    case ROUNDEDCYL:
+      localSupport = GetSupportPoint_RoundedCylinder(Shape.B-Shape.margin, Shape.C, n);
+      break;
+    case ROUNDEDCONE:
+      localSupport = GetSupportPoint_RoundedCone(Shape.B-Shape.margin, Shape.C, n);
+      break;
+  }
+  // The collision envelope is applied as a compound support.
+  // A sphere with a radius equal to the collision envelope is swept around the
+  // entire shape.
+  localSupport += GetSupportPoint_Sphere(envelope, n) + Shape.margin * n;
+  return localSupport;
+}
+
 inline real3 LocalSupportVert(const ConvexShape& Shape, const real3& n, const real& envelope) {
   real3 rotated_n = quatRotateT(n, Shape.R);
-  return SupportVert(Shape, rotated_n, envelope);
+  return SupportVertNoMargin(Shape, rotated_n, envelope);
 }
 
 inline real3 TransformSupportVert(const ConvexShape& Shape, const real3& n, const real& envelope) {
@@ -205,7 +245,7 @@ inline real3 TransformSupportVert(const ConvexShape& Shape, const real3& n, cons
 
   switch (Shape.type) {
     case TRIANGLEMESH: {
-      // Triangles are handles differently than other convex shapes but they
+      // Triangles are handled differently than other convex shapes but they
       // still have an envelope around them. Prior to this there was no way
       // to define envelopes for triangle meshes.
       // Note that even with this change, large penetrations might cause the

@@ -29,6 +29,8 @@ struct ConvexShape {
   real3 B;           // dimensions
   real3 C;           // extra
   quaternion R;      // rotation
+  real margin;
+  ConvexShape():margin(0.04){}
 };
 
 struct ContactPoint {
@@ -87,6 +89,8 @@ struct ContactManifold {
     real3 localB = TransformParentToLocal(shapeB.A, shapeB.R, pointInWorld);
 
     ContactPoint newPt(localA, localB, normalOnBInWorld, depth);
+    newPt.pointA = pointA;
+    newPt.pointB = pointInWorld;
     int insertIndex = getCacheEntry(newPt);
     if (insertIndex >= 0) {
       replaceContactPoint(newPt, insertIndex);

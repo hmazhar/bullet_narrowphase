@@ -65,7 +65,20 @@ struct MinkowskiDiff {
   MinkowskiDiff() {}
 
   inline real3 Support0(const real3& d) const { return SupportVert(shapeA, d, 0); }
-  inline real3 Support1(const real3& d) const { return SupportVert(shapeB, d, 0); }
+  inline real3 Support1(const real3& d) const {
+
+    real3 m_toshape0_v = (shapeB.A - shapeA.A);
+    real3 m_toshape0_translate = quatRotateT(m_toshape0_v, shapeA.R);
+
+    real4 m_toshape0 = (~shapeA.R) % shapeB.R;
+    real4 m_toshape1 = (~shapeB.R) % shapeA.R;
+
+    real3 sv = SupportVert(shapeB, quatRotate(d, m_toshape1), 0);
+    real3 result = TransformLocalToParent(m_toshape0_translate, m_toshape0, sv);
+
+
+    return result;    // SupportVert(shapeB, d, 0) + shapeB.margin * d;
+  }
   inline real3 Support(const real3& d) const { return (Support0(d) - Support1(-d)); }
   real3 Support(const real3& d, U index) const {
     if (index) {
@@ -682,8 +695,8 @@ bool Distance(const ConvexShape& shape0, const ConvexShape& shape1, const real3&
       w0 += shape.Support(gjk.m_simplex->c[i]->d, 0) * p;
       w1 += shape.Support(-gjk.m_simplex->c[i]->d, 1) * p;
     }
-    results.witnesses[0] = w1;
-    results.witnesses[1] = w0;
+    results.witnesses[0] = TransformLocalToParent(shape0.A, shape0.R, w0);
+    results.witnesses[1] = TransformLocalToParent(shape0.A, shape0.R, w1);
     results.normal = w1 - w0;
     results.distance = -results.normal.length();
     results.normal /= results.distance > GJK_MIN_DISTANCE ? results.distance : 1;
@@ -710,9 +723,9 @@ bool Penetration(const ConvexShape& shape0, const ConvexShape& shape1, const rea
           w0 += shape.Support(epa.m_result.c[i]->d, 0) * epa.m_result.p[i];
         }
         results.status = sResults::Penetrating;
-        results.witnesses[0] = w0;
-        results.witnesses[1] = (w0 - epa.m_normal * epa.m_depth);
-        results.normal = epa.m_normal;
+        results.witnesses[0] = TransformLocalToParent(shape0.A, shape0.R, w0);
+        results.witnesses[1] = TransformLocalToParent(shape0.A, shape0.R,(w0 - epa.m_normal * epa.m_depth));
+        results.normal = -epa.m_normal;
         results.distance = -epa.m_depth;
         return (true);
       } else
@@ -728,11 +741,11 @@ bool Penetration(const ConvexShape& shape0, const ConvexShape& shape1, const rea
 bool calcPenDepth(const ConvexShape& shape0, const ConvexShape& shape1, sResults& results) {
   real3 guess = shape0.A - shape1.A;
 
-  if (Distance(shape0, shape1, guess, results)) {
+  if (Penetration(shape0, shape1, guess, results)) {
     return true;
   } else {
 
-    if (Penetration(shape0, shape1, guess, results)) {
+    if (Distance(shape0, shape1, guess, results)) {
       return false;
     }
   }
@@ -741,7 +754,7 @@ bool calcPenDepth(const ConvexShape& shape0, const ConvexShape& shape1, sResults
 // must be above the machine epsilon
 #define REL_ERROR2 real(1.0e-6)
 
-bool Collide(const ConvexShape& shapeA, const ConvexShape& shapeB, ContactManifold& manifold, real3& m_cachedSeparatingAxis, real margin) {
+bool Collide(const ConvexShape& shape0, const ConvexShape& shape1, ContactManifold& manifold, real3& m_cachedSeparatingAxis, real margin) {
   sResults results;
   real m_cachedSeparatingDistance;
   int gNumDeepPenetrationChecks = 0;
@@ -758,9 +771,15 @@ bool Collide(const ConvexShape& shapeA, const ConvexShape& shapeB, ContactManifo
   real3 normalInB = real3(0.0, 0.0, 0.0);
   real3 pointOnA, pointOnB;
 
+  ConvexShape shapeA = shape0;
+  ConvexShape shapeB = shape1;
+
+
   real3 positionOffset = (shapeA.A + shapeB.A) * real(0.5);
-  real3 A_origin = shapeA.A - positionOffset;
-  real3 B_origin = shapeB.A - positionOffset;
+  shapeA.A = shapeA.A - positionOffset;
+  shapeB.A = shapeB.A - positionOffset;
+
+
 
   real marginA = margin;
   real marginB = margin;
@@ -780,7 +799,7 @@ bool Collide(const ConvexShape& shapeA, const ConvexShape& shapeB, ContactManifo
     real squaredDistance = LARGE_REAL;
     real delta = 0.0;
     real margin = marginA + marginB;
-
+    m_simplexSolver->reset();
     for (;;) {
       real3 seperatingAxisInA = quatRotateT(-m_cachedSeparatingAxis, shapeA.R);
       real3 seperatingAxisInB = quatRotateT(m_cachedSeparatingAxis, shapeB.R);
@@ -788,8 +807,13 @@ bool Collide(const ConvexShape& shapeA, const ConvexShape& shapeB, ContactManifo
       real3 pInA = SupportVert(shapeA, seperatingAxisInA, 0);
       real3 qInB = SupportVert(shapeB, seperatingAxisInB, 0);
 
-      real3 pWorld = TransformLocalToParent(A_origin, shapeA.R, pInA);
-      real3 qWorld = TransformLocalToParent(B_origin, shapeB.R, qInB);
+      real3 pWorld = TransformLocalToParent(shapeA.A, shapeA.R, pInA);
+      real3 qWorld = TransformLocalToParent(shapeB.A, shapeB.R, qInB);
+
+      printf("seperatingAxisInA: [%f %f %f], seperatingAxisInB:  [%f %f %f]\n", seperatingAxisInA.x, seperatingAxisInA.y, seperatingAxisInA.z, seperatingAxisInB.x, seperatingAxisInB.y,
+             seperatingAxisInB.z);
+      printf("pInA: [%f %f %f], qInB:  [%f %f %f]\n", pInA.x, pInA.y, pInA.z, qInB.x, qInB.y, qInB.z);
+      printf("pWorld: [%f %f %f], qWorld:  [%f %f %f]\n", pWorld.x, pWorld.y, pWorld.z, qWorld.x, qWorld.y, qWorld.z);
 
       real3 w = pWorld - qWorld;
       delta = m_cachedSeparatingAxis.dot(w);
@@ -965,12 +989,12 @@ bool Collide(const ConvexShape& shapeA, const ConvexShape& shapeB, ContactManifo
     }
   }
 
-  std::cout<<"last Method: "<<m_lastUsedMethod<<std::endl;
+  printf("last Method: %d", m_lastUsedMethod);
 
   if (isValid && ((distance < 0) || (distance * distance < LARGE_REAL))) {
     m_cachedSeparatingAxis = normalInB;
     m_cachedSeparatingDistance = distance;
-    manifold.addContactPoint(shapeA, shapeB, normalInB, real3(pointOnB + positionOffset), distance);
+    manifold.addContactPoint(shape0, shape1, normalInB, real3(pointOnB + positionOffset), distance);
   }
 }
 
@@ -1032,7 +1056,7 @@ void PerturbedCollide(const ConvexShape& shapeA, const ConvexShape& shapeB, Cont
         Collide(pShapeA, pShapeB, perturbed_manifold, sep_axis, margin);
 
         for (int i = 0; i < perturbed_manifold.num_contact_points; i++) {
-          std::cout << manifold.points[i].normal << manifold.points[i].pointA << manifold.points[i].pointB << manifold.points[i].depth << std::endl;
+          std::cout << perturbed_manifold.points[i].normal << perturbed_manifold.points[i].pointA << perturbed_manifold.points[i].pointB << perturbed_manifold.points[i].depth << std::endl;
         }
       }
     }

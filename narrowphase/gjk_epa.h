@@ -42,6 +42,9 @@ struct sResults {
 #define SIMDSQRT12 0.7071067811865475244008443621048490
 #define SIMD_PI 3.1415926535897932384626433832795028842
 #define SIMD_2_PI 2 * SIMD_PI
+
+
+
 template <class T>
 inline void PlaneSpace1(const T& n, T& p, T& q) {
   if (fabs(n.z) > SIMDSQRT12) {
