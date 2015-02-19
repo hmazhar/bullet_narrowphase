@@ -23,6 +23,8 @@
  GJK-EPA collision solver by Nathanael Presson, 2008
  */
 
+
+
 #include <algorithm>
 
 #include "../defines.h"
@@ -30,6 +32,14 @@
 #include "../math/collision_math.h"
 #include "support.h"
 #include "gjk_epa.h"
+
+/*Future reference:
+ * Start by looking at btGjkPairDetector class
+ * This will lead to btGjkEpaPenetrationDepthSolver and btGjkEpaSolver2
+ * Contact points are stored in btManifoldResult
+ * Perturbation is done in btConvexConvexAlgorithm
+*/
+
 /* GJK   */
 #define GJK_MAX_ITERATIONS 128
 #define GJK_ACCURARY ((real)0.0001)
@@ -75,7 +85,6 @@ struct MinkowskiDiff {
 
     real3 sv = SupportVert(shapeB, quatRotate(d, m_toshape1), 0);
     real3 result = TransformLocalToParent(m_toshape0_translate, m_toshape0, sv);
-
 
     return result;    // SupportVert(shapeB, d, 0) + shapeB.margin * d;
   }
@@ -724,7 +733,7 @@ bool Penetration(const ConvexShape& shape0, const ConvexShape& shape1, const rea
         }
         results.status = sResults::Penetrating;
         results.witnesses[0] = TransformLocalToParent(shape0.A, shape0.R, w0);
-        results.witnesses[1] = TransformLocalToParent(shape0.A, shape0.R,(w0 - epa.m_normal * epa.m_depth));
+        results.witnesses[1] = TransformLocalToParent(shape0.A, shape0.R, (w0 - epa.m_normal * epa.m_depth));
         results.normal = -epa.m_normal;
         results.distance = -epa.m_depth;
         return (true);
@@ -774,12 +783,9 @@ bool Collide(const ConvexShape& shape0, const ConvexShape& shape1, ContactManifo
   ConvexShape shapeA = shape0;
   ConvexShape shapeB = shape1;
 
-
   real3 positionOffset = (shapeA.A + shapeB.A) * real(0.5);
   shapeA.A = shapeA.A - positionOffset;
   shapeB.A = shapeB.A - positionOffset;
-
-
 
   real marginA = margin;
   real marginB = margin;
@@ -804,16 +810,16 @@ bool Collide(const ConvexShape& shape0, const ConvexShape& shape1, ContactManifo
       real3 seperatingAxisInA = quatRotateT(-m_cachedSeparatingAxis, shapeA.R);
       real3 seperatingAxisInB = quatRotateT(m_cachedSeparatingAxis, shapeB.R);
 
-      real3 pInA = SupportVert(shapeA, seperatingAxisInA, 0);
-      real3 qInB = SupportVert(shapeB, seperatingAxisInB, 0);
+      real3 pInA = SupportVertNoMargin(shapeA, seperatingAxisInA, 0);
+      real3 qInB = SupportVertNoMargin(shapeB, seperatingAxisInB, 0);
 
       real3 pWorld = TransformLocalToParent(shapeA.A, shapeA.R, pInA);
       real3 qWorld = TransformLocalToParent(shapeB.A, shapeB.R, qInB);
 
-      printf("seperatingAxisInA: [%f %f %f], seperatingAxisInB:  [%f %f %f]\n", seperatingAxisInA.x, seperatingAxisInA.y, seperatingAxisInA.z, seperatingAxisInB.x, seperatingAxisInB.y,
-             seperatingAxisInB.z);
-      printf("pInA: [%f %f %f], qInB:  [%f %f %f]\n", pInA.x, pInA.y, pInA.z, qInB.x, qInB.y, qInB.z);
-      printf("pWorld: [%f %f %f], qWorld:  [%f %f %f]\n", pWorld.x, pWorld.y, pWorld.z, qWorld.x, qWorld.y, qWorld.z);
+      //      printf("seperatingAxisInA: [%f %f %f], seperatingAxisInB:  [%f %f %f]\n", seperatingAxisInA.x, seperatingAxisInA.y, seperatingAxisInA.z, seperatingAxisInB.x, seperatingAxisInB.y,
+      //             seperatingAxisInB.z);
+      //      printf("pInA: [%f %f %f], qInB:  [%f %f %f]\n", pInA.x, pInA.y, pInA.z, qInB.x, qInB.y, qInB.z);
+      //      printf("pWorld: [%f %f %f], qWorld:  [%f %f %f]\n", pWorld.x, pWorld.y, pWorld.z, qWorld.x, qWorld.y, qWorld.z);
 
       real3 w = pWorld - qWorld;
       delta = m_cachedSeparatingAxis.dot(w);
@@ -989,7 +995,7 @@ bool Collide(const ConvexShape& shape0, const ConvexShape& shape1, ContactManifo
     }
   }
 
-  printf("last Method: %d", m_lastUsedMethod);
+  // printf("last Method: %d", m_lastUsedMethod);
 
   if (isValid && ((distance < 0) || (distance * distance < LARGE_REAL))) {
     m_cachedSeparatingAxis = normalInB;
