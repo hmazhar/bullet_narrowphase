@@ -41,31 +41,31 @@ struct sResults {
 
 #define SIMDSQRT12 0.7071067811865475244008443621048490
 #define SIMD_PI 3.1415926535897932384626433832795028842
-#define SIMD_2_PI 2*SIMD_PI
+#define SIMD_2_PI 2 * SIMD_PI
 template <class T>
 inline void PlaneSpace1(const T& n, T& p, T& q) {
-  if (fabs(n[2]) > SIMDSQRT12) {
+  if (fabs(n.z) > SIMDSQRT12) {
     // choose p in y-z plane
-    real a = n[1] * n[1] + n[2] * n[2];
+    real a = n.y * n.y + n.z * n.z;
     real k = 1.0 / sqrt(a);
-    p[0] = 0;
-    p[1] = -n[2] * k;
-    p[2] = n[1] * k;
+    p.x = 0;
+    p.y = -n.z * k;
+    p.z = n.y * k;
     // set q = n x p
-    q[0] = a * k;
-    q[1] = -n[0] * p[2];
-    q[2] = n[0] * p[1];
+    q.x = a * k;
+    q.y = -n.x * p.z;
+    q.z = n.x * p.y;
   } else {
     // choose p in x-y plane
-    real a = n[0] * n[0] + n[1] * n[1];
+    real a = n.x * n.x + n.y * n.y;
     real k = 1.0 / sqrt(a);
-    p[0] = -n[1] * k;
-    p[1] = n[0] * k;
-    p[2] = 0;
+    p.x = -n.y * k;
+    p.y = n.x * k;
+    p.z = 0;
     // set q = n x p
-    q[0] = -n[2] * p[1];
-    q[1] = n[2] * p[0];
-    q[2] = a * k;
+    q.x = -n.z * p.y;
+    q.y = n.z * p.x;
+    q.z = a * k;
   }
 }
 
@@ -73,8 +73,8 @@ bool Distance(const ConvexShape& shape0, const ConvexShape& shape1, const real3&
 
 bool Penetration(const ConvexShape& shape0, const ConvexShape& shape1, const real3& guess, sResults& results);
 
-bool Collide(const ConvexShape& shape0, const ConvexShape& shape1,ContactManifold & manifold, real margin);
-
+bool Collide(const ConvexShape& shape0, const ConvexShape& shape1, ContactManifold& manifold, real3 & m_cachedSeparatingAxis, real margin);
+void PerturbedCollide(const ConvexShape& shapeA, const ConvexShape& shapeB, ContactManifold& manifold, real margin, real3 m_cachedSeparatingAxis);
 bool calcPenDepth(const ConvexShape& shape0, const ConvexShape& shape1, sResults& results);
 
 #endif

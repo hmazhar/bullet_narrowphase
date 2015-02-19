@@ -741,10 +741,9 @@ bool calcPenDepth(const ConvexShape& shape0, const ConvexShape& shape1, sResults
 // must be above the machine epsilon
 #define REL_ERROR2 real(1.0e-6)
 
-bool Collide(const ConvexShape& shapeA, const ConvexShape& shapeB, ContactManifold& manifold, real margin) {
+bool Collide(const ConvexShape& shapeA, const ConvexShape& shapeB, ContactManifold& manifold, real3& m_cachedSeparatingAxis, real margin) {
   sResults results;
   real m_cachedSeparatingDistance;
-  real3 m_cachedSeparatingAxis;
   int gNumDeepPenetrationChecks = 0;
   int gNumGjkChecks = 0;
   int m_curIter = 0;
@@ -966,6 +965,8 @@ bool Collide(const ConvexShape& shapeA, const ConvexShape& shapeB, ContactManifo
     }
   }
 
+  std::cout<<"last Method: "<<m_lastUsedMethod<<std::endl;
+
   if (isValid && ((distance < 0) || (distance * distance < LARGE_REAL))) {
     m_cachedSeparatingAxis = normalInB;
     m_cachedSeparatingDistance = distance;
@@ -1000,39 +1001,39 @@ void PerturbedCollide(const ConvexShape& shapeA, const ConvexShape& shapeB, Cont
     if (perturbeAngle > angleLimit)
       perturbeAngle = angleLimit;
 
-    btTransform unPerturbedTransform;
-    if (perturbeA) {
-      unPerturbedTransform = input.m_transformA;
-    } else {
-      unPerturbedTransform = input.m_transformB;
-    }
+    //    btTransform unPerturbedTransform;
+    //    if (perturbeA) {
+    //      unPerturbedTransform = input.m_transformA;
+    //    } else {
+    //      unPerturbedTransform = input.m_transformB;
+    //    }
+
+    ConvexShape pShapeA = shapeA;
+    ConvexShape pShapeB = shapeB;
 
     for (i = 0; i < m_numPerturbationIterations; i++) {
       if (v0.length2() > ZERO_EPSILON) {
-        real4 perturbeRot(v0, perturbeAngle);
+        real4 perturbeRot = Q_from_AngAxis(perturbeAngle, v0);
         real iterationAngle = i * (SIMD_2_PI / real(m_numPerturbationIterations));
-        real4 rotq(sepNormalWorldSpace, iterationAngle);
+        real4 rotq = Q_from_AngAxis(iterationAngle, sepNormalWorldSpace);
 
         if (perturbeA) {
-          input.m_transformA.setBasis(btMatrix3x3(rotq.inverse() * perturbeRot * rotq) * body0->getWorldTransform().getBasis());
-          input.m_transformB = body1->getWorldTransform();
-#ifdef DEBUG_CONTACTS
-          dispatchInfo.m_debugDraw->drawTransform(input.m_transformA, 10.0);
-#endif    // DEBUG_CONTACTS
+
+          pShapeA.R = ((~rotq) % perturbeRot % rotq) % shapeA.R;
+          pShapeB.R = shapeB.R;
+
         } else {
-          input.m_transformA = body0->getWorldTransform();
-          input.m_transformB.setBasis(btMatrix3x3(rotq.inverse() * perturbeRot * rotq) * body1->getWorldTransform().getBasis());
-#ifdef DEBUG_CONTACTS
-          dispatchInfo.m_debugDraw->drawTransform(input.m_transformB, 10.0);
-#endif
+          pShapeA.R = shapeA.R;
+          pShapeB.R = ((~rotq) % perturbeRot % rotq) % shapeB.R;
         }
 
-        btPerturbedContactResult perturbedResultOut(resultOut, input.m_transformA, input.m_transformB, unPerturbedTransform, perturbeA, dispatchInfo.m_debugDraw);
+        ContactManifold perturbed_manifold;
+        real3 sep_axis = real3(0);
+        Collide(pShapeA, pShapeB, perturbed_manifold, sep_axis, margin);
 
-
-
-
-        gjkPairDetector.getClosestPoints(input, perturbedResultOut, dispatchInfo.m_debugDraw);
+        for (int i = 0; i < perturbed_manifold.num_contact_points; i++) {
+          std::cout << manifold.points[i].normal << manifold.points[i].pointA << manifold.points[i].pointB << manifold.points[i].depth << std::endl;
+        }
       }
     }
   }

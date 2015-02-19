@@ -222,7 +222,7 @@ inline real3 TransformSupportVert(const ConvexShape& Shape, const real3& n, cons
   return TransformLocalToParent(Shape.A, Shape.R, localSupport);
 }
 
-inline void GetBoundingSphere(const ConvexShape& Shape, const real3& center, const real& disc) {
+inline void GetBoundingSphere(const ConvexShape& Shape,  real3& center, real& disc) {
   center = real3(0);
   switch (Shape.type) {
     case SPHERE:
@@ -255,7 +255,7 @@ inline void GetBoundingSphere(const ConvexShape& Shape, const real3& center, con
   }
 }
 
-inline real GetAngularMotionDisc(const ConvexShape& Shape) const {
+inline real GetAngularMotionDisc(const ConvexShape& Shape) {
   real3 center;
   real disc;
   GetBoundingSphere(Shape, center, disc);
